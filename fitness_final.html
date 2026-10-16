@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>12% 體脂與腹肌特訓主頁 | 體態數據與永久歷史記錄</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .glass-card { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .check-btn:active { transform: scale(0.9); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 pb-16">
+  <div class="max-w-6xl mx-auto space-y-6">
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span>🔥</span> 12% 體脂與腹肌特訓主頁
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">目標：體脂 12% ｜ 跨月跨年永久保存 ｜ 體重/體脂/肌肉量追蹤</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openSyncModal()" class="px-3 py-2 text-xs font-bold text-amber-300 bg-amber-950/60 hover:bg-amber-900/70 rounded-lg border border-amber-700/60 transition flex items-center gap-1">🔄 跨裝置同步</button>
+        <button onclick="exportData()" class="px-3 py-2 text-xs font-medium text-emerald-400 bg-emerald-950/50 hover:bg-emerald-900/60 rounded-lg border border-emerald-800/60 transition">📤 匯出備份 (JSON)</button>
+      </div>
+    </header>
+
+    <!-- 同步 Modal -->
+    <div id="syncModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 p-4">
+      <div class="glass-card rounded-2xl p-6 max-w-md w-full space-y-4 border border-slate-700 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white">🔄 跨裝置快速同步</h3>
+          <button onclick="closeSyncModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+        </div>
+        <p class="text-xs text-slate-300">複製同步碼到另一台裝置貼上，跨月跨年紀錄與體態數據即刻同步。</p>
+        <textarea id="syncCodeArea" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-300 font-mono"></textarea>
+        <div class="flex gap-2 justify-end">
+          <button onclick="copySyncCode()" class="flex-1 bg-slate-800 text-amber-300 py-2.5 rounded-xl text-xs">📋 複製同步碼</button>
+          <button onclick="applySyncCode()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs">✅ 載入覆蓋</button>
+        </div>
+        <p id="syncStatusMsg" class="text-center text-xs text-emerald-400 hidden"></p>
+      </div>
+    </div>
+
+    <!-- 身體數值記錄 Modal -->
+    <div id="bodyModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 p-4">
+      <div class="glass-card rounded-2xl p-6 max-w-sm w-full space-y-4 border border-slate-700 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-white">📊 記錄今日身體組成</h3>
+          <button onclick="closeBodyModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+        </div>
+        <form id="bodyStatsForm" class="space-y-3">
+          <div><label class="text-xs text-slate-300">日期</label><input type="date" id="bodyDateInput" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"></div>
+          <div><label class="text-xs text-slate-300">體重 (kg)</label><input type="number" step="0.1" id="bodyWeightInput" placeholder="67.5" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"></div>
+          <div><label class="text-xs text-slate-300">體脂率 (%)</label><input type="number" step="0.1" id="bodyFatInput" placeholder="27.0" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"></div>
+          <div><label class="text-xs text-slate-300">骨骼肌重 / 肌肉量 (kg)</label><input type="number" step="0.1" id="bodyMuscleInput" placeholder="28.5" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"></div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl text-xs transition">儲存體態紀錄</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- KPI 區 -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="glass-card rounded-2xl p-5">
+        <div class="text-slate-400 text-xs uppercase">今日訓練打卡狀態</div>
+        <div class="mt-2 flex items-baseline justify-between">
+          <span id="todayStatusText" class="text-2xl font-extrabold text-amber-400">尚未打卡</span>
+          <span id="todayCountText" class="text-sm text-slate-400">任選 1 模組完成</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+          <div id="todayProgressBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+      <div class="glass-card rounded-2xl p-5">
+        <div class="text-slate-400 text-xs uppercase">最新體態數據 (InBody)</div>
+        <div class="mt-2 flex items-baseline justify-between">
+          <span id="latestBodyStats" class="text-xl font-extrabold text-emerald-400">67.5 kg / 27%</span>
+          <button onclick="openBodyModal()" class="text-xs text-sky-400 hover:underline">＋ 記錄新數據</button>
+        </div>
+        <p class="text-xs text-slate-400 mt-3">目標：體脂 12% ｜ 持續減脂</p>
+      </div>
+      <div class="glass-card rounded-2xl p-5">
+        <div class="text-slate-400 text-xs uppercase">歷史紀錄儲存狀態</div>
+        <div class="mt-2 flex items-baseline justify-between">
+          <span class="text-2xl font-extrabold text-amber-400">永久保留 🔒</span>
+          <span class="text-xs text-slate-400">跨月跨年不遺失</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-3">支援隨時匯出備份 JSON</p>
+      </div>
+    </section>
+
+    <!-- 左右區塊 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-5 space-y-6">
+        <div class="glass-card rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold text-white">🎯 今日教練課表打卡</h2>
+            <span class="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-full">點鉛筆改重量</span>
+          </div>
+          <div id="todayHabitsList" class="space-y-3"></div>
+
+          <form id="addHabitForm" class="mt-5 pt-4 border-t border-slate-800 space-y-3">
+            <div class="text-xs font-bold text-slate-300">➕ 新增教練自訂動作或重量更新</div>
+            <div class="flex gap-2">
+              <input type="text" id="newHabitInput" placeholder="例：胸推 32kg..." required class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+              <select id="newHabitCategory" class="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-300">
+                <option value="Push">Push 推力</option>
+                <option value="Pull">Pull 拉力</option>
+                <option value="Legs">Legs 腿與核心</option>
+                <option value="Cardio">Cardio 斜坡快走</option>
+              </select>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-xl text-xs transition">＋ 新增至訓練菜單</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="lg:col-span-7 space-y-6">
+        <div class="glass-card rounded-2xl p-5">
+          <h2 class="text-lg font-bold text-white mb-4">📈 體重與體脂率下降趨勢 (邁向 12%)</h2>
+          <div class="h-64 w-full"><canvas id="bodyStatsChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 視圖切換區 -->
+    <section class="glass-card rounded-2xl p-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-lg font-bold text-white">🗓️ 訓練進度與歷史月報表</h2>
+          <p class="text-xs text-slate-400">可切換「7 天詳細矩陣」與「跨月跨年行事曆月報表」</p>
+        </div>
+        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 self-start">
+          <button id="viewWeekBtn" onclick="switchView('week')" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-white transition">7 天詳細矩陣</button>
+          <button id="viewMonthBtn" onclick="switchView('month')" class="px-4 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">跨月/跨年行事曆報表 📅</button>
+        </div>
+      </div>
+
+      <div id="weekViewContainer" class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[640px]">
+          <thead><tr id="matrixHeaderRow" class="border-b border-slate-800 text-slate-400 text-xs uppercase"></tr></thead>
+          <tbody id="matrixBody" class="divide-y divide-slate-800/60 text-sm"></tbody>
+        </table>
+      </div>
+
+      <div id="monthViewContainer" class="hidden space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <button onclick="changeMonth(-1)" class="px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs">◀ 上個月</button>
+            <span id="currentMonthTitle" class="text-base font-bold text-emerald-400">2026年 10月</span>
+            <button onclick="changeMonth(1)" class="px-3 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs">下個月 ▶</button>
+          </div>
+          <div id="monthSummaryText" class="text-xs text-slate-400">當月總訓練天數：0 天</div>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 font-bold pb-2 border-b border-slate-800">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+        <div id="monthCalendarGrid" class="grid grid-cols-7 gap-2"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'fitness_12pct_permanent_v4';
+    let bodyChartInstance = null;
+    let currentView = 'week';
+    let selectedYear = new Date().getFullYear();
+    let selectedMonth = new Date().getMonth();
+
+    function getTodayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function getPastDates(days = 7) {
+      const dates = [];
+      const today = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      }
+      return dates;
+    }
+
+    function formatShortDate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      return { weekday: `週${['日','一','二','三','四','五','六'][dateObj.getDay()]}`, md: `${m}/${d}` };
+    }
+
+    function getDefaultData() {
+      const today = getTodayStr();
+      return {
+        habits: [
+          { id: 'p1', category: 'Push', name: '🦾 推力日：器械坐姿胸推 (30kg)', history: { [today]: true } },
+          { id: 'p2', category: 'Push', name: '🦾 推力日：器械坐姿肩推 (18kg)', history: {} },
+          { id: 'p3', category: 'Push', name: '🦾 推力日：雙槓臂屈伸/撐體 (+32.5kg)', history: { [today]: true } },
+          { id: 'u1', category: 'Pull', name: '🔙 拉力日：寬握下拉 (35kg)', history: {} },
+          { id: 'l1', category: 'Legs', name: '🦵 腿與核心：哈克深蹲', history: {} },
+          { id: 'c1', category: 'Cardio', name: '🏃 有氧排酸：斜坡快走 (坡10/速4.5)', history: {} }
+        ],
+        bodyStats: [
+          { date: '2026-09-01', weight: 68.5, bodyFat: 28.0, muscle: 28.0 },
+          { date: '2026-10-01', weight: 67.8, bodyFat: 27.5, muscle: 28.3 },
+          { date: '2026-10-16', weight: 67.5, bodyFat: 27.0, muscle: 28.5 }
+        ]
+      };
+    }
+
+    let appData = loadData();
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { try { return JSON.parse(raw); } catch (e) {} }
+      const def = getDefaultData();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(def));
+      return def;
+    }
+    function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); renderAll(); }
+
+    function toggleHabitDate(habitId, dateStr) {
+      const habit = appData.habits.find(h => h.id === habitId);
+      if (!habit) return;
+      habit.history[dateStr] = !habit.history[dateStr];
+      saveData();
+    }
+
+    function editHabitName(habitId) {
+      const habit = appData.habits.find(h => h.id === habitId);
+      if (!habit) return;
+      const newName = prompt('修改動作名稱與重量：', habit.name);
+      if (newName !== null && newName.trim() !== '') { habit.name = newName.trim(); saveData(); }
+    }
+
+    function moveHabit(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= appData.habits.length) return;
+      const temp = appData.habits[index];
+      appData.habits[index] = appData.habits[targetIndex];
+      appData.habits[targetIndex] = temp;
+      saveData();
+    }
+
+    function deleteHabit(habitId, event) {
+      if (event) event.stopPropagation();
+      if (confirm('確定要刪除這個動作嗎？')) { appData.habits = appData.habits.filter(h => h.id !== habitId); saveData(); }
+    }
+
+    function openBodyModal() {
+      document.getElementById('bodyDateInput').value = getTodayStr();
+      const modal = document.getElementById('bodyModal');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function closeBodyModal() {
+      document.getElementById('bodyModal').classList.add('hidden');
+      document.getElementById('bodyModal').classList.remove('flex');
+    }
+
+    document.getElementById('bodyStatsForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const date = document.getElementById('bodyDateInput').value;
+      const weight = parseFloat(document.getElementById('bodyWeightInput').value);
+      const bodyFat = parseFloat(document.getElementById('bodyFatInput').value);
+      const muscle = parseFloat(document.getElementById('bodyMuscleInput').value) || 0;
+
+      const existing = appData.bodyStats.find(s => s.date === date);
+      if (existing) { existing.weight = weight; existing.bodyFat = bodyFat; existing.muscle = muscle; }
+      else { appData.bodyStats.push({ date, weight, bodyFat, muscle }); appData.bodyStats.sort((a, b) => new Date(a.date) - new Date(b.date)); }
+      closeBodyModal(); saveData();
+    });
+
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `fitness_permanent_backup_${getTodayStr()}.json`);
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function switchView(view) {
+      currentView = view;
+      const weekBtn = document.getElementById('viewWeekBtn');
+      const monthBtn = document.getElementById('viewMonthBtn');
+      const weekContainer = document.getElementById('weekViewContainer');
+      const monthContainer = document.getElementById('monthViewContainer');
+
+      if (view === 'week') {
+        weekBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-white transition';
+        monthBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+        weekContainer.classList.remove('hidden'); monthContainer.classList.add('hidden');
+      } else {
+        monthBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-white transition';
+        weekBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+        monthContainer.classList.remove('hidden'); weekContainer.classList.add('hidden');
+        renderMonthCalendar();
+      }
+    }
+
+    function changeMonth(direction) {
+      selectedMonth += direction;
+      if (selectedMonth > 11) { selectedMonth = 0; selectedYear++; }
+      else if (selectedMonth < 0) { selectedMonth = 11; selectedYear--; }
+      renderMonthCalendar();
+    }
+
+    function renderMonthCalendar() {
+      document.getElementById('currentMonthTitle').textContent = `${selectedYear}年 ${selectedMonth + 1}月`;
+      const grid = document.getElementById('monthCalendarGrid');
+      grid.innerHTML = '';
+      const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
+      const totalDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      const todayStr = getTodayStr();
+      let monthTrainedDays = 0;
+
+      for (let i = 0; i < firstDay; i++) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'h-20 bg-slate-900/20 rounded-xl opacity-20';
+        grid.appendChild(emptyDiv);
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = (dateStr === todayStr);
+        const trainedToday = appData.habits.some(h => h.history[dateStr]);
+        if (trainedToday) monthTrainedDays++;
+
+        const cell = document.createElement('div');
+        cell.className = `h-20 p-2 rounded-xl border flex flex-col justify-between transition ${trainedToday ? 'bg-emerald-950/40 border-emerald-600/50 text-white' : 'bg-slate-900/60 border-slate-800 text-slate-400'} ${isToday ? 'ring-2 ring-emerald-400' : ''}`;
+        cell.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold ${isToday ? 'text-emerald-400' : ''}">${day}</span>
+            <span class="text-[10px]">${trainedToday ? '🔥 已練' : '·'}</span>
+          </div>
+          <div class="text-[11px] truncate font-medium ${trainedToday ? 'text-emerald-300' : 'text-slate-600'}">${trainedToday ? '達成訓練' : '休息'}</div>
+        `;
+        grid.appendChild(cell);
+      }
+      document.getElementById('monthSummaryText').textContent = `${selectedYear}年${selectedMonth + 1}月總訓練天數：${monthTrainedDays} 天`;
+    }
+
+    function renderAll() {
+      const past7Dates = getPastDates(7);
+      const today = past7Dates[past7Dates.length - 1];
+
+      if (appData.bodyStats && appData.bodyStats.length > 0) {
+        const latest = appData.bodyStats[appData.bodyStats.length - 1];
+        document.getElementById('latestBodyStats').textContent = `${latest.weight} kg / ${latest.bodyFat}%`;
+      }
+
+      const todayDoneCount = appData.habits.filter(h => h.history[today]).length;
+      const todayIsCompleted = todayDoneCount > 0;
+
+      document.getElementById('todayStatusText').textContent = todayIsCompleted ? '🔥 今日已訓練達標' : '⏳ 今日尚未訓練';
+      document.getElementById('todayStatusText').className = todayIsCompleted ? 'text-2xl font-extrabold text-emerald-400' : 'text-2xl font-extrabold text-amber-400';
+      document.getElementById('todayCountText').textContent = `已執行 ${todayDoneCount} 個動作`;
+      document.getElementById('todayProgressBar').style.width = todayIsCompleted ? '100%' : '0%';
+
+      const todayListEl = document.getElementById('todayHabitsList');
+      todayListEl.innerHTML = '';
+      appData.habits.forEach((h, index) => {
+        const isDone = !!h.history[today];
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between p-3 rounded-xl border transition ${isDone ? 'bg-emerald-950/30 border-emerald-700/50 text-white' : 'bg-slate-900/60 border-slate-800 text-slate-300'}`;
+        item.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer" onclick="toggleHabitDate('${h.id}', '${today}')">
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${isDone ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-transparent border border-slate-600'}">✓</div>
+            <span class="font-medium text-xs md:text-sm truncate ${isDone ? 'line-through text-slate-400' : ''}">${h.name}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0 ml-2">
+            <button onclick="editHabitName('${h.id}')" class="text-slate-400 hover:text-amber-300 text-xs px-1.5 py-1">✏️</button>
+            <button onclick="moveHabit(${index}, -1)" class="text-slate-500 hover:text-white text-xs px-1">▲</button>
+            <button onclick="moveHabit(${index}, 1)" class="text-slate-500 hover:text-white text-xs px-1">▼</button>
+          </div>
+        `;
+        todayListEl.appendChild(item);
+      });
+
+      const headerRow = document.getElementById('matrixHeaderRow');
+      let headerHTML = `<th class="py-3 px-3 w-64">動作項目與重量</th>`;
+      past7Dates.forEach((d, idx) => {
+        const info = formatShortDate(d);
+        headerHTML += `<th class="py-3 px-2 text-center ${idx === 6 ? 'text-emerald-400 font-bold' : ''}">${idx === 6 ? '今日' : info.weekday}<br><span class="text-[10px]">${info.md}</span></th>`;
+      });
+      headerHTML += `<th class="py-3 px-2 text-right">操作</th>`;
+      headerRow.innerHTML = headerHTML;
+
+      const matrixBody = document.getElementById('matrixBody');
+      matrixBody.innerHTML = '';
+      appData.habits.forEach((h, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/30';
+        let rowHTML = `<td class="py-3 px-3 text-white text-xs md:text-sm font-medium">${h.name}</td>`;
+        past7Dates.forEach(d => {
+          const checked = !!h.history[d];
+          rowHTML += `<td class="py-2 px-2 text-center"><button onclick="toggleHabitDate('${h.id}', '${d}')" class="w-8 h-8 rounded-lg font-bold text-sm ${checked ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-600'}">${checked ? '✓' : '·'}</button></td>`;
+        });
+        rowHTML += `
+          <td class="py-3 px-2 text-right space-x-1">
+            <button onclick="editHabitName('${h.id}')" class="text-amber-300 text-xs px-1">編輯</button>
+            <button onclick="moveHabit(${index}, -1)" class="text-slate-400 text-xs">▲</button>
+            <button onclick="moveHabit(${index}, 1)" class="text-slate-400 text-xs">▼</button>
+            <button onclick="deleteHabit('${h.id}', event)" class="text-rose-400 text-xs">刪除</button>
+          </td>
+        `;
+        tr.innerHTML = rowHTML;
+        matrixBody.appendChild(tr);
+      });
+
+      const ctx = document.getElementById('bodyStatsChart').getContext('2d');
+      if (bodyChartInstance) bodyChartInstance.destroy();
+      const stats = appData.bodyStats || [];
+      bodyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: stats.map(s => s.date),
+          datasets: [
+            { label: '體重 (kg)', data: stats.map(s => s.weight), borderColor: '#38bdf8', backgroundColor: '#38bdf8', tension: 0.2, yAxisID: 'y' },
+            { label: '體脂率 (%)', data: stats.map(s => s.bodyFat), borderColor: '#f59e0b', backgroundColor: '#f59e0b', tension: 0.2, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#f8fafc', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#38bdf8' }, title: { display: true, text: '體重 (kg)', color: '#38bdf8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y1: { type: 'linear', display: true, position: 'right', ticks: { color: '#f59e0b' }, title: { display: true, text: '體脂率 (%)', color: '#f59e0b' }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+
+      if (currentView === 'month') renderMonthCalendar();
+    }
+
+    document.getElementById('addHabitForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const input = document.getElementById('newHabitInput');
+      const catSelect = document.getElementById('newHabitCategory');
+      const name = input.value.trim();
+      if (!name) return;
+      const catIcons = { Push: '🦾 推力日', Pull: '🔙 拉力日', Legs: '🦵 腿與核心', Cardio: '🏃 有氧排酸' };
+      appData.habits.push({ id: 'h_' + Date.now(), category: catSelect.value, name: `${catIcons[catSelect.value]}：${name}`, history: {} });
+      input.value = ''; saveData();
+    });
+
+    function openSyncModal() {
+      const modal = document.getElementById('syncModal');
+      document.getElementById('syncCodeArea').value = JSON.stringify(appData);
+      document.getElementById('syncStatusMsg').classList.add('hidden');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function closeSyncModal() { document.getElementById('syncModal').classList.add('hidden'); document.getElementById('syncModal').classList.remove('flex'); }
+    function copySyncCode() {
+      const area = document.getElementById('syncCodeArea'); area.select();
+      navigator.clipboard.writeText(area.value).then(() => {
+        const msg = document.getElementById('syncStatusMsg'); msg.textContent = '✨ 已複製同步碼！'; msg.classList.remove('hidden');
+      });
+    }
+    function applySyncCode() {
+      try {
+        const parsed = JSON.parse(document.getElementById('syncCodeArea').value.trim());
+        if (parsed && Array.isArray(parsed.habits)) {
+          appData = parsed; saveData();
+          const msg = document.getElementById('syncStatusMsg'); msg.textContent = '🎉 同步成功！'; msg.classList.remove('hidden');
+          setTimeout(closeSyncModal, 900);
+        } else { alert('格式錯誤！'); }
+      } catch (e) { alert('同步碼無效！'); }
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
